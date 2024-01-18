@@ -21,7 +21,6 @@ from dataset import read_data, QueryDataset, collate_fn
 from model import LMConfig, LanguageModel
 from utils import get_params, get_model, model_save, model_load, TrainLogger
 
-
 logging.basicConfig(format='%(asctime)s -  %(message)s', datefmt='%m/%d/%Y %H:%M:%S', level=logging.INFO)
 logger = logging.getLogger(__name__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -34,7 +33,7 @@ def get_args():
     parser.add_argument('--data_dir', default="data/aol/full")
     parser.add_argument('--resume', default=None, type=str)
     parser.add_argument('--model_dir', default=None, type=str)
-    parser.add_argument('--min_len', type=int, default=3)   # min_prefix_len + min_suffix_len
+    parser.add_argument('--min_len', type=int, default=3)  # min_prefix_len + min_suffix_len
 
     # tokenization
     parser.add_argument('--spm', type=str, default='char')
@@ -62,7 +61,7 @@ def get_args():
     parser.add_argument('--eval_n_steps', type=int, default=None)
 
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--num_workers', type=int, default=16)
+    parser.add_argument('--num_workers', type=int, default=0)
     args = parser.parse_args()
 
     logger.info(f"device: {device}, n_gpu: {n_gpu}")
@@ -109,19 +108,20 @@ def evaluate(model, data_loader, n_steps=None):
     return train_logger.average(), train_logger.print_str()
 
 
-def train(model, optimizer, tokenizer, train_data, valid_data, args):
+def train(model, optimizer, used_collate_fn, train_data, valid_data, args):
     logger.info("Training starts!")
     os.makedirs(args.model_dir, exist_ok=True)
 
     train_dataset = QueryDataset(train_data)
+
     train_data_loader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset),
                                    batch_size=args.bsz, num_workers=args.num_workers,
-                                   collate_fn=lambda x: collate_fn(x, tokenizer, args.sample, args.max_seq_len))
+                                   collate_fn=used_collate_fn)
 
     valid_dataset = QueryDataset(valid_data)
     valid_data_loader = DataLoader(valid_dataset, sampler=SequentialSampler(valid_dataset),
-                                   batch_size = args.bsz, num_workers = args.num_workers,
-                                   collate_fn = lambda x: collate_fn(x, tokenizer, args.sample, args.max_seq_len))
+                                   batch_size=args.bsz, num_workers=args.num_workers,
+                                   collate_fn=lambda x: used_collate_fn)
 
     n_batch = (len(train_dataset) - 1) // args.bsz + 1
     logger.info(f"  Number of training batch: {n_batch}")
@@ -177,15 +177,16 @@ def train(model, optimizer, tokenizer, train_data, valid_data, args):
         logger.info('  Exiting from training early')
 
 
-def test(model, tokenizer, test_data, args):
+def test(model, used_collate_fn, test_data, args):
     logger.info("Test starts!")
     model_load(args.model_dir, model)
     model = model.to(device)
 
     test_dataset = QueryDataset(test_data)
+
     test_data_loader = DataLoader(test_dataset, sampler=SequentialSampler(test_dataset),
                                   batch_size=args.bsz, num_workers=args.num_workers,
-                                  collate_fn=lambda x: collate_fn(x, tokenizer, args.sample, args.max_seq_len))
+                                  collate_fn=used_collate_fn)
 
     test_loss, test_str = evaluate(model, test_data_loader)
     logger.info(f"| test  | {test_str}")
@@ -224,9 +225,12 @@ def main(args):
         logger.info(f"Making model as data parallel")
         model = torch.nn.DataParallel(model, dim=1)
 
-    train(model, optimizer, tokenizer, data['train'], data['valid'], args)
+    def used_collate_fn(x):
+        return collate_fn(x, tokenizer, args.sample, args.max_seq_len)
 
-    test(model, tokenizer, data['test'], args)
+    train(model, optimizer, used_collate_fn, data['train'], data['valid'], args)
+
+    test(model, used_collate_fn, data['test'], args)
 
 
 if __name__ == "__main__":
