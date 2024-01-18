@@ -121,7 +121,7 @@ def train(model, optimizer, used_collate_fn, train_data, valid_data, args):
     valid_dataset = QueryDataset(valid_data)
     valid_data_loader = DataLoader(valid_dataset, sampler=SequentialSampler(valid_dataset),
                                    batch_size=args.bsz, num_workers=args.num_workers,
-                                   collate_fn=lambda x: used_collate_fn)
+                                   collate_fn=used_collate_fn)
 
     n_batch = (len(train_dataset) - 1) // args.bsz + 1
     logger.info(f"  Number of training batch: {n_batch}")
