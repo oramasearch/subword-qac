@@ -20,11 +20,12 @@ This is the official github repository for [Subword Language Model for Query Aut
                               --valid_start "2006-05-18 00:00:00" --valid_end "2006-05-25 00:00:00" \
                               --test_start  "2006-05-25 00:00:00" --test_end  "2006-06-01 00:00:00"
   ```
-- Train [SentencePiece](https://github.com/google/sentencepiece/) models (char, bpe, and unigram): `./train_spms.sh`. 
-  You may change the subword vocabulary size (default: 256).
+- Train [SentencePiece](https://github.com/google/sentencepiece/) models (char, bpe, and unigram): use the script `train_spms.py` or `./train_spms.sh`, 
+  if you have spm_train installed. You may change the subword vocabulary size (default: 256).
 
 
 ## Training a language model
+
 ```
 python train.py \
     --data_dir data/aol/full \
@@ -35,6 +36,8 @@ python train.py \
     --nlayers 1 \
     --max_seq_len 40
 ```  
+
+Note: changing the variable `--num_workers` to a positive number might cause a multiprocessing error.
 
 ## Generating completions using a trained language model
 ``` 

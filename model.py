@@ -175,6 +175,8 @@ class LanguageModel(nn.Module):
                          dropoutr=config.dropoutr, dropouth=config.dropouth, dropouto=config.dropouto)
         self.projection = nn.Linear(nhid, ninp)
         self.decoder = nn.Linear(ninp, ntoken)
+        # Note: doing this isn't copying the weights but linking them, which is
+        # likely not was intended, since weights are initialised twice
         self.decoder.weight = self.encoder.weight
 
         self.init_weights()
